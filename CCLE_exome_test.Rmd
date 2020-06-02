@@ -1,0 +1,199 @@
+
+#load files
+```{r}
+#library(devtools)
+#instLAML_github("jokergoo/ComplexHeatmap")
+library(ComplexHeatmap)
+library(stringr)
+#find mutations sitting on exons
+mat<-read.csv("~/Dropbox/CCLE_DepMap_18q3_maf_20180718.txt",header=T, sep="\t")
+#takes time due to a large file
+cell_info<-read.csv("~/Dropbox/Cell_lines_annotations_20181226.txt",header=T,row.names=1, sep="\t")
+cell_info_LAML<-cell_info[cell_info$tcga_code=="LAML",]
+cell_info_LAML<-cell_info_LAML[!is.na(cell_info_LAML$tcga_code),]
+#subset LAML cells from mutation matrix
+mat_LAML<-mat[mat$Tumor_Sample_Barcode%in%rownames(cell_info_LAML),]
+backup<-mat
+cell_list<-unique(mat_LAML$Tumor_Sample_Barcode)
+#make a gene list
+gene_AML<-c("DNMT3A","IDH1","IDH2","TET2","FLT3")
+gene_chromatin_remodeling<-c("KMT2A","KMT2B","KMT2C","KMT2D","BAP1","ARID5B","KDM6A")
+gene_cell_cycle<-c("TP53","CDKN2A","CDKN2B","RB1","MYC")
+gene_DNA_repair<-c("ATM","ATR","BRCA1","BRCA2","CHEK1","CHEK2","TP53BP1")
+gene_signaling<-c("EGFR","FGFR1","PIK3CA","PTEN","KRAS","NRAS")
+gene_list<-c(gene_AML,gene_cell_cycle,gene_signaling,
+             gene_DNA_repair,gene_chromatin_remodeling)
+#subset LAML cells by the gene list
+mat_LAML_select<-mat_LAML[mat_LAML$Hugo_Symbol%in%gene_list,]
+mat_LAML_select<-mat_LAML_select[mat_LAML_select$Variant_Classification!="Silent",]
+#make a blank mat
+mat<-matrix(nrow=length(gene_list),ncol=length(cell_list))
+mat[,]<-0
+rownames(mat)<-gene_list
+colnames(mat)<-cell_list
+#make mutation mat
+mat_Frame_Shift_Del<-mat
+        for (i in 1:nrow(mat_LAML_select)){
+                if(mat_LAML_select[i,]$Variant_Classification=="Frame_Shift_Del"){
+                mat_Frame_Shift_Del[which(rownames(mat_Frame_Shift_Del)
+                ==mat_LAML_select[i,]$Hugo_Symbol),
+                which(colnames(mat_Frame_Shift_Del)
+                ==mat_LAML_select[i,]$Tumor_Sample_Barcode)]<-1 
+}}
+mat_Frame_Shift_Ins<-mat
+        for (i in 1:nrow(mat_LAML_select)){
+                if(mat_LAML_select[i,]$Variant_Classification=="Frame_Shift_Ins"){
+                mat_Frame_Shift_Ins[which(rownames(mat_Frame_Shift_Ins)
+                ==mat_LAML_select[i,]$Hugo_Symbol),
+                which(colnames(mat_Frame_Shift_Ins)
+                ==mat_LAML_select[i,]$Tumor_Sample_Barcode)]<-1 
+}}
+mat_In_Frame_Del<-mat
+        for (i in 1:nrow(mat_LAML_select)){
+                if(mat_LAML_select[i,]$Variant_Classification=="In_Frame_Del"){
+                mat_In_Frame_Del[which(rownames(mat_In_Frame_Del)
+                ==mat_LAML_select[i,]$Hugo_Symbol),
+                which(colnames(mat_In_Frame_Del)
+                ==mat_LAML_select[i,]$Tumor_Sample_Barcode)]<-1 
+}}
+mat_Missense_Mutation<-mat
+        for (i in 1:nrow(mat_LAML_select)){
+                if(mat_LAML_select[i,]$Variant_Classification=="Missense_Mutation"){
+                mat_Missense_Mutation[which(rownames(mat_Missense_Mutation)
+                ==mat_LAML_select[i,]$Hugo_Symbol),
+                which(colnames(mat_Missense_Mutation)
+                ==mat_LAML_select[i,]$Tumor_Sample_Barcode)]<-1 
+}}
+mat_Nonsense_Mutation<-mat
+        for (i in 1:nrow(mat_LAML_select)){
+                if(mat_LAML_select[i,]$Variant_Classification=="Nonsense_Mutation"){
+                mat_Nonsense_Mutation[which(rownames(mat_Nonsense_Mutation)
+                ==mat_LAML_select[i,]$Hugo_Symbol),
+                which(colnames(mat_Nonsense_Mutation)
+                ==mat_LAML_select[i,]$Tumor_Sample_Barcode)]<-1 
+}}
+mat_Splice_Site<-mat
+        for (i in 1:nrow(mat_LAML_select)){
+                if(mat_LAML_select[i,]$Variant_Classification=="Splice_Site"){
+                mat_Splice_Site[which(rownames(mat_Splice_Site)
+                ==mat_LAML_select[i,]$Hugo_Symbol),
+                which(colnames(mat_Splice_Site)
+                ==mat_LAML_select[i,]$Tumor_Sample_Barcode)]<-1 
+}}
+
+```
+
+```{r}
+col = c("mat_Missense_Mutation"="blue", "mat_Nonsense_Mutation"="red",
+        "mat_Splice_Site"="purple", "mat_In_Frame_Del"="yellow",
+        "mat_Frame_Shift_Ins"="orange", "mat_Frame_Shift_Del"="green")
+mat_list = list(mat_In_Frame_Del=mat_In_Frame_Del,
+                mat_Missense_Mutation=mat_Missense_Mutation,
+                mat_Nonsense_Mutation=mat_Nonsense_Mutation,
+                mat_Splice_Site=mat_Splice_Site,
+                mat_Frame_Shift_Ins=mat_Frame_Shift_Ins,
+                mat_Frame_Shift_Del=mat_Frame_Shift_Del)
+alter_fun = list(
+        background = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = "#CCCCCC", col = NA))
+    },
+        mat_In_Frame_Del = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h*0.66, 
+            gp = gpar(fill = col["mat_In_Frame_Del"], col = NA))
+    },
+        mat_Missense_Mutation = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h*0.33, 
+            gp = gpar(fill = col["mat_Missense_Mutation"], col = NA))
+    },
+        mat_Nonsense_Mutation = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = col["mat_Nonsense_Mutation"], col = NA))
+    },
+        mat_Splice_Site = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = col["mat_Splice_Site"], col = NA))
+    },
+        mat_Frame_Shift_Ins = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = col["mat_Frame_Shift_Ins"], col = NA))
+    },
+        mat_Frame_Shift_Del = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = col["mat_Frame_Shift_Del"], col = NA))
+    }
+)
+```
+
+```{r}
+column_title = "Mutation Landscape for LAML Cell Lines"
+heatmap_legend_param = list(title = "Alternations",
+                            at = c("mat_Splice_Site","mat_Frame_Shift_Ins",
+                                   "mat_Frame_Shift_Del","mat_Nonsense_Mutation",
+                                   "mat_In_Frame_Del", "mat_Missense_Mutation"), 
+        labels = c( "Splice Site","FS Ins","FS Del",
+                    "Nonscense","In Frame Del","Missense"))
+ht<-oncoPrint(mat_list,
+    alter_fun = alter_fun, col = col,
+    remove_empty_columns = F, remove_empty_rows = F,
+    pct_side = "right", row_names_side = "left",
+    column_title = column_title, heatmap_legend_param = heatmap_legend_param)
+```
+### CNV heatmap
+```{r}
+#Add CNV info (31 / 44 acute lympho leuk cell lines are included)
+mat_cnv<-read.csv("~/Dropbox/CCLE_copynumber_byGene_2013-12-03.txt",header=T, sep="\t")
+mat_cnv<-mat_cnv[mat_cnv$SYMBOL%in%gene_list,]
+cnv_symbol<-mat_cnv[,2]
+mat_cnv<-mat_cnv[,intersect(colnames(mat_cnv),cell_list)]
+mat_cnv<-cbind(cnv_symbol,mat_cnv)
+rownames(mat_cnv)<-mat_cnv$cnv_symbol
+mat_cnv<-mat_cnv[,2:ncol(mat_cnv)]
+
+mat_CNV_gain<-mat[,intersect(colnames(mat_cnv),cell_list)]
+         for (i in 1:ncol(mat_cnv)){
+                 for (j in 1:nrow(mat_cnv)){
+                         if(mat_cnv[j,i]>1){
+                                 mat_CNV_gain[rownames(mat_CNV_gain)==rownames(mat_cnv[j,]),i]<-1
+                         }}}
+
+mat_CNV_loss<-mat[,intersect(colnames(mat_cnv),cell_list)]
+         for (i in 1:ncol(mat_cnv)){
+                 for (j in 1:nrow(mat_cnv)){
+                         if(mat_cnv[j,i]< -1){
+                                 mat_CNV_loss[rownames(mat_CNV_loss)==rownames(mat_cnv[j,]),i]<-1
+                         }}}
+```
+
+```{r}
+col = c("mat_CNV_gain"="red", "mat_CNV_loss"="blue")
+mat_list = list(mat_CNV_gain=mat_CNV_gain,
+                mat_CNV_loss=mat_CNV_loss)
+alter_fun = list(
+        background = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = "#CCCCCC", col = NA))
+    },
+        mat_CNV_gain = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = col["mat_CNV_gain"], col = NA))
+    },
+        mat_CNV_loss = function(x, y, w, h) {
+        grid.rect(x, y, w-unit(2, "pt"), h-unit(2, "pt"), 
+            gp = gpar(fill = col["mat_CNV_loss"], col = NA))
+    }
+)
+```
+
+```{r}
+column_title = "Mutation Landscape for LAML Cell Lines"
+heatmap_legend_param = list(title = "Alternations",
+                            at = c("mat_CNV_gain", "mat_CNV_loss"), 
+        labels = c("CNV_gain","CNV_loss"))
+ht<-oncoPrint(mat_list,
+    alter_fun = alter_fun, col = col,
+    remove_empty_columns = F, remove_empty_rows = F,
+    pct_side = "right", row_names_side = "left",
+    column_title = column_title, heatmap_legend_param = heatmap_legend_param)
+```
+
