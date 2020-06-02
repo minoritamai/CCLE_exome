@@ -2,7 +2,7 @@
 #load files
 ```{r}
 #library(devtools)
-#instLAML_github("jokergoo/ComplexHeatmap")
+#install_github("jokergoo/ComplexHeatmap")
 library(ComplexHeatmap)
 library(stringr)
 #find mutations sitting on exons
